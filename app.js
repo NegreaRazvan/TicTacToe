@@ -3,6 +3,7 @@ let XCELLS=[];
 let OCELLS=[];
 let win=false;
 const restart=document.querySelector(".restart")
+const mode=document.getElementById("modes");
 const winCond=[
     [0,1,2],
     [3,4,5],
@@ -14,6 +15,16 @@ const winCond=[
     [2,5,8]
 ]
 
+let matrix = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0]
+];
+
+function getRandomInt(max) {
+    return Math.floor(Math.random() * max);
+}
+
 
 const board=document.getElementById('board');
 let XTurn;
@@ -21,8 +32,14 @@ let XTurn;
 function start(){
     XTurn=true;
     restart.addEventListener('click',restartBoard);
+    mode.addEventListener('click',restartBoard);
     allCells.forEach(cell => {
-        cell.addEventListener('click',handleClick)
+        cell.addEventListener('click',(e) => {
+            if(mode.checked)
+                handleClick(e);
+            else
+                vsPc(e);
+        });
     });
     hoverEffect();
 }
@@ -52,7 +69,7 @@ function hoverEffect(){
         board.classList.add('x');
     else
         board.classList.add('o');
-    
+
 }
 
 /**
@@ -92,7 +109,7 @@ function addCellOcuppied(turn,index){
 /**
  * deletes the oldest mark on the board from the respective class
  * @param {*} list the list from which the index needs to be deleted (OCELLS or XCELLS)
- * @param {*} mark in order to remove the class from the list 
+ * @param {*} mark in order to remove the class from the list
  */
 function delOldMark(list,mark){
     const oldMark=list[0];
@@ -106,13 +123,14 @@ function delOldMark(list,mark){
         }
         index++;
     }
+    matrix[Math.floor(index/3)][index%3]=0;
     cell.classList.remove(mark);
     cell.classList.remove('pulsate');
 }
 
 /**
  * gives a pulsating effect to the oldest move of the respective mark
- * @param {*} list - OCELLS or XCELLS, depending on who's turn it was 
+ * @param {*} list - OCELLS or XCELLS, depending on who's turn it was
  */
 function pulsatingEffect(list){
     const oldMark=list[0];
@@ -143,6 +161,14 @@ function restartBoard(){
     win=false;
     board.classList.add('x');
     XTurn=true;
+    restart.classList.remove('win');
+    board.classList.remove('o');
+    board.classList.add('x');
+    matrix=[
+        [0,0,0],
+        [0,0,0],
+        [0,0,0],
+    ];
 }
 
 /**
@@ -154,6 +180,7 @@ function endGame(list){
     board.classList.remove('x');
     board.classList.remove('o');
     console.log(board.classList);
+    restart.classList.add('win');
     console.log('winner');
     console.log(list);
     allCells.forEach(cell => {
@@ -171,9 +198,96 @@ function endGame(list){
     }
 }
 
+function makeMinimaxMatrix(index, mark){
+    matrix[Math.floor(index/3)][index%3]=mark;
+}
+
+function winMiniMax(mat,mark){
+    if(mat[0][1]==mark&&mat[0][2]==mark&&mat[0][0]==mark)
+        return true;
+    if(mat[1][1]==mark&&mat[1][2]==mark&&mat[1][0]==mark)
+        return true;
+    if(mat[2][1]==mark&&mat[2][2]==mark&&mat[2][0]==mark)
+        return true;
+    if(mat[0][1]==mark&&mat[1][1]==mark&&mat[2][1]==mark)
+        return true;
+    if(mat[0][0]==mark&&mat[1][0]==mark&&mat[2][0]==mark)
+        return true;
+    if(mat[0][2]==mark&&mat[1][2]==mark&&mat[2][2]==mark)
+        return true;
+    if(mat[0][0]==mark&&mat[1][1]==mark&&mat[2][2]==mark)
+        return true;
+    if(mat[0][2]==mark&&mat[1][1]==mark&&mat[2][0]==mark)
+        return true;
+    return false;
+}
+
+function minimax(MM,depth, AIturn){
+    if(winMiniMax(MM,2)){
+        return 10000;
+    }
+    if(winMiniMax(MM,1))
+        return -10000;
+    if(AIturn){
+        let best=-1000;
+        for(let i=0; i<3; i++)
+            for(let j =0; j < 3; j++)
+                if(MM[i][j]===0){
+                    MM[i][j]=2;
+                    let score=minimax(MM,depth+1, false);
+                    MM[i][j]=0;
+                    best=Math.max(score,best);
+
+                }
+        return best;
+    }else{
+        let best=1000;
+        for(let i=0; i<3; i++)
+            for(let j =0; j < 3; j++){
+                if(MM[i][j]===0){
+                    MM[i][j]=1;
+                    let score=minimax(MM,depth+1, true);
+                    MM[i][j]=0;
+                    best=Math.min(score,best);
+                }
+            }
+        return best;
+    }
+}
+
+function bestMove(mat){
+    let bestScore=-1000;
+    let index=-1;
+    let indexInCase=-1;
+    for(let i=0;i<3;i++)
+        for(let j=0;j<3;j++){
+            if(mat[i][j]==0){
+                if(indexInCase===-1)
+                    indexInCase=i*3+j;
+                mat[i][j]=2;
+                console.log(mat);
+                console.log(i);console.log(j);
+                console.log('gata');
+                console.log(mat[i][j]);
+                console.log('gata2');
+                let score=minimax(mat,0,false);
+                mat[i][j]=0;
+                console.log(score);
+                if(score>=bestScore){
+                    bestScore=score;
+                    index=i*3+j;
+                }
+            }
+        }
+    if(index==-1)
+        return indexInCase;
+    return index;
+}
+
 
 function handleClick(event){
     if(!win){
+
         const cell=event.target;
         const currentClass = XTurn ? 'x' : 'o';
         let markPlaced = placeMark(cell,currentClass);
@@ -192,12 +306,91 @@ function handleClick(event){
             //check for wins
             if(winner(currentClass))
                 endGame(XTurn ? XCELLS : OCELLS);
-            
+
             //switch turns
             XTurn=!XTurn;
         }
         if(!win){
-            console.log('not a win');
+            hoverEffect();
+            if(XCELLS.length==3)
+                pulsatingEffect(XCELLS);
+            if(OCELLS.length==3)
+                pulsatingEffect(OCELLS);
+        }
+    }
+}
+
+function vsPc(event){
+    if(!win){
+        const cell=event.target;
+        let markPlaced = placeMark(cell,'x');
+        if(markPlaced){
+            let index=determineIndexClicked(cell);
+
+            makeMinimaxMatrix(index,1);
+
+
+            //add the mark
+            addCellOcuppied(XTurn,index);
+
+            //check if we need to remove the oldest mark
+            if(XCELLS.length==4){
+                delOldMark(XCELLS,'x');
+            }
+
+            //check for wins
+            if(winner('x'))
+                endGame(XCELLS);
+
+            //switch turns
+            XTurn=!XTurn;
+
+            if(!win){
+                let index1=0;
+                if(OCELLS.length==0)
+                {
+                    index1=getRandomInt(9);
+                    let ok=1,ok1=1;
+                    while(true){
+                        ok=0,ok1=0;
+                        for(i of XCELLS){
+                            if(index1===i){
+                                ok=1;
+                                break;
+                            }
+                        }
+                        for(i of OCELLS){
+                            if(index1===i){
+                                ok1=1;
+                                break;
+                            }
+                        }
+                        if(ok||ok1)
+                            index1=getRandomInt(9);
+                        else
+                            break;
+                    }
+                }else
+                    index1=bestMove(matrix);
+                makeMinimaxMatrix(index1,2);
+                console.log(matrix);
+                console.log(index1);
+                let cell1,j=0;
+                allCells.forEach(c => {
+                    if(index1==j)
+                        cell1=c;
+                    j++;
+                });
+                placeMark(cell1,'o');
+                addCellOcuppied(XTurn,index1);
+                if(OCELLS.length==4)
+                    delOldMark(OCELLS,'o');
+                if(winner('o'))
+                    endGame(OCELLS);
+                XTurn=!XTurn;
+            }
+        }
+        if(!win){
             hoverEffect();
             if(XCELLS.length==3)
                 pulsatingEffect(XCELLS);
